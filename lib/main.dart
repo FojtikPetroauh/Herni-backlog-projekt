@@ -47,7 +47,7 @@ class MainListScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🔥 Firebase Backlog'),
+        title: const Text('Herní backlog'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -63,30 +63,59 @@ class MainListScreen extends StatelessWidget {
           }
 
           return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              var data = docs[index].data() as Map<String, dynamic>;
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                child: ListTile(
-                  onTap: () {
-                    final game = Game.fromFirestore(docs[index].id, data);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddGameScreen(gameToEdit: game),
-                        ),
-                      );
-                  },
-                  leading: const CircleAvatar(child: Icon(Icons.videogame_asset)),
-                  title: Text(data['title'] ?? 'Bez názvu'),
-                  subtitle: Text('${data['platform']} • ${data['status']}'),
-                  trailing: Text('⭐ ${data['rating']}'),
-                  onLongPress: () => gamesRef.doc(docs[index].id).delete(),
-                ),
-              );
-            },
-          );
+  itemCount: docs.length,
+  itemBuilder: (context, index) {
+    var data = docs[index].data() as Map<String, dynamic>;
+    final gameId = docs[index].id; // Uložíme si ID dokumentu
+
+    return Dismissible(
+      // 1. Unikátní klíč, aby Flutter věděl, co mažeš
+      key: Key(gameId), 
+      
+      // 2. Směr odsunutí (zprava doleva)
+      direction: DismissDirection.endToStart, 
+      
+      // 3. Červené pozadí s ikonou koše, které se objeví při odsunutí
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+
+      // 4. Samotná akce smazání ve Firebase
+      onDismissed: (direction) {
+        gamesRef.doc(gameId).delete();
+        
+        // Malé oznámení pro uživatele dole na obrazovce
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${data['title']} odstraněno')),
+        );
+      },
+
+      // Tady začíná tvůj původní kód (jen vracíme Card)
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: ListTile(
+          onTap: () {
+            final game = Game.fromFirestore(gameId, data);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AddGameScreen(gameToEdit: game),
+              ),
+            );
+          },
+          leading: const CircleAvatar(child: Icon(Icons.videogame_asset)),
+          title: Text(data['title'] ?? 'Bez názvu'),
+          subtitle: Text('${data['platform']} • ${data['status']}'),
+          trailing: Text('⭐ ${data['rating']}'),
+          // onLongPress už teď v podstatě nepotřebuješ, když máš swipe
+        ),
+      ),
+    );
+  },
+);
         },
       ),
       floatingActionButton: FloatingActionButton(
