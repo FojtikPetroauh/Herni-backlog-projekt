@@ -66,16 +66,13 @@ class MainListScreen extends StatelessWidget {
   itemCount: docs.length,
   itemBuilder: (context, index) {
     var data = docs[index].data() as Map<String, dynamic>;
-    final gameId = docs[index].id; // Uložíme si ID dokumentu
+    final gameId = docs[index].id; 
 
     return Dismissible(
-      // 1. Unikátní klíč, aby Flutter věděl, co mažeš
       key: Key(gameId), 
       
-      // 2. Směr odsunutí (zprava doleva)
       direction: DismissDirection.endToStart, 
       
-      // 3. Červené pozadí s ikonou koše, které se objeví při odsunutí
       background: Container(
         color: Colors.red,
         alignment: Alignment.centerRight,
@@ -83,17 +80,14 @@ class MainListScreen extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
 
-      // 4. Samotná akce smazání ve Firebase
       onDismissed: (direction) {
         gamesRef.doc(gameId).delete();
         
-        // Malé oznámení pro uživatele dole na obrazovce
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${data['title']} odstraněno')),
         );
       },
 
-      // Tady začíná tvůj původní kód (jen vracíme Card)
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: ListTile(
@@ -110,7 +104,6 @@ class MainListScreen extends StatelessWidget {
           title: Text(data['title'] ?? 'Bez názvu'),
           subtitle: Text('${data['platform']} • ${data['status']}'),
           trailing: Text('⭐ ${data['rating']}'),
-          // onLongPress už teď v podstatě nepotřebuješ, když máš swipe
         ),
       ),
     );
