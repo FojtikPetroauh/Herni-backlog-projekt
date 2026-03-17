@@ -21,37 +21,71 @@ void main() async {
   runApp(const GameBacklogApp());
 }
 
-class GameBacklogApp extends StatelessWidget {
+class GameBacklogApp extends StatefulWidget {
   const GameBacklogApp({super.key});
+
+  @override
+  State<GameBacklogApp> createState() => _GameBacklogAppState();
+}
+
+class _GameBacklogAppState extends State<GameBacklogApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  void _toggleTheme() {
+    setState(() {
+      _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Herní Backlog',
       debugShowCheckedModeBanner: false,
+      
+      themeAnimationDuration: Duration.zero, 
+
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple, 
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
-      home: const MainListScreen(),
+      
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple, 
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      
+      themeMode: _themeMode,
+      home: MainListScreen(onThemeToggle: _toggleTheme, currentMode: _themeMode),
     );
   }
 }
 
 class MainListScreen extends StatefulWidget {
-  const MainListScreen({super.key});
+  final VoidCallback onThemeToggle;
+  final ThemeMode currentMode;
+
+  const MainListScreen({
+    super.key, 
+    required this.onThemeToggle, 
+    required this.currentMode
+  });
 
   @override
   State<MainListScreen> createState() => _MainListScreenState();
 }
 
 class _MainListScreenState extends State<MainListScreen> {
-  // --- PROMĚNNÉ PRO FILTRY ---
   String _selectedStatus = "Vše";
   String _selectedPlatform = "Vše";
   String _selectedRating = "Vše";
 
-  // Pomocná funkce pro barvy statusů
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Hraju': return const Color(0xFF66FF00);
@@ -62,7 +96,6 @@ class _MainListScreenState extends State<MainListScreen> {
     }
   }
 
-  // Pomocná funkce pro stavbu řádku s filtry
   Widget _buildFilterRow(String label, List<String> options, String currentVal, Function(String) onSelect) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -88,7 +121,6 @@ class _MainListScreenState extends State<MainListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // --- STAVBA DOTAZU (QUERY) ---
     Query query = FirebaseFirestore.instance.collection('games');
 
     if (_selectedStatus != "Vše") {
@@ -105,13 +137,21 @@ class _MainListScreenState extends State<MainListScreen> {
       appBar: AppBar(
         title: const Text('Můj Herní Backlog'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            icon: Icon(widget.currentMode == ThemeMode.dark ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onThemeToggle,
+            tooltip: "Přepnout režim",
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // SEKCZE FILTRŮ
           Container(
-            color: Colors.grey.shade100,
             padding: const EdgeInsets.symmetric(vertical: 8),
+            color: Theme.of(context).brightness == Brightness.light 
+                ? Colors.grey.shade100 
+                : Colors.grey.shade900,
             child: Column(
               children: [
                 _buildFilterRow("Stav", ["Vše", "Chystám se", "Hraju", "Dohráno", "Odloženo"], _selectedStatus, (v) => setState(() => _selectedStatus = v)),
@@ -121,7 +161,6 @@ class _MainListScreenState extends State<MainListScreen> {
             ),
           ),
 
-          // SEZNAM HER
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: query.snapshots(),
@@ -132,7 +171,7 @@ class _MainListScreenState extends State<MainListScreen> {
                 var docs = snapshot.data!.docs;
 
                 if (docs.isEmpty) {
-                  return const Center(child: Text('Žádné hry neodpovídají filtrům.'));
+                  return const Center(child: Text('Žádné hry neodpovídají zvoleným filtrům.'));
                 }
 
                 return ListView.builder(
@@ -149,13 +188,16 @@ class _MainListScreenState extends State<MainListScreen> {
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text("Smazat hru?"),
-                            content: const Text("Tato akce je nevratná."),
+                            content: const Text("Tato akce trvale odstraní hru z cloudu."),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("NE")),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false), 
+                                child: const Text("NE"),
+                              ),
                               TextButton(
                                 onPressed: () => Navigator.pop(context, true), 
                                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                child: const Text("ANO")
+                                child: const Text("ANO"),
                               ),
                             ],
                           ),
@@ -170,7 +212,7 @@ class _MainListScreenState extends State<MainListScreen> {
                       onDismissed: (direction) {
                         FirebaseFirestore.instance.collection('games').doc(gameId).delete();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${data['title']} odstraněno')),
+                          SnackBar(content: Text('${data['title']} bylo smazáno')),
                         );
                       },
                       child: Card(
@@ -179,7 +221,7 @@ class _MainListScreenState extends State<MainListScreen> {
                           onTap: () {
                             final game = Game.fromFirestore(gameId, data);
                             Navigator.push(
-                              context,
+                              context, 
                               MaterialPageRoute(builder: (context) => AddGameScreen(gameToEdit: game)),
                             );
                           },
@@ -187,7 +229,10 @@ class _MainListScreenState extends State<MainListScreen> {
                             backgroundColor: _getStatusColor(data['status'] ?? ''),
                             child: const Icon(Icons.videogame_asset, color: Colors.white),
                           ),
-                          title: Text(data['title'] ?? 'Bez názvu', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(
+                            data['title'] ?? 'Bez názvu', 
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           subtitle: Text('${data['platform']} • ${data['status']}'),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -207,11 +252,11 @@ class _MainListScreenState extends State<MainListScreen> {
           ),
         ],
       ),
-      // --- UPRAVENÉ TLAČÍTKO ---
+      
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
-            context,
+            context, 
             MaterialPageRoute(builder: (context) => const AddGameScreen()),
           );
         },
