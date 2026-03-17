@@ -41,6 +41,15 @@ class GameBacklogApp extends StatelessWidget {
 class MainListScreen extends StatelessWidget {
   const MainListScreen({super.key});
 
+  Color _getStatusColor(String status) {
+  switch (status) {
+    case 'Hraju': return const Color(0xFF66FF00);
+    case 'Dohráno': return const Color(0xFF0010EE);
+    case 'Chystám se': return const Color(0xFFFFD900);
+    default: return Colors.grey;
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     final CollectionReference gamesRef = FirebaseFirestore.instance.collection('games');
@@ -73,6 +82,20 @@ class MainListScreen extends StatelessWidget {
       
       direction: DismissDirection.endToStart, 
       
+      confirmDismiss: (direction) async{
+        return await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Smazat hru?"),
+            content: const Text("Opravdu?"),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("NE")),
+              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("ANO", style: TextStyle(color: Colors.red))),
+            ],
+          ),
+        );
+      },
+
       background: Container(
         color: Colors.red,
         alignment: Alignment.centerRight,
@@ -100,7 +123,9 @@ class MainListScreen extends StatelessWidget {
               ),
             );
           },
-          leading: const CircleAvatar(child: Icon(Icons.videogame_asset)),
+          leading: CircleAvatar(
+            backgroundColor: _getStatusColor(data['status']),
+            child: Icon(Icons.videogame_asset, color: Colors.white)),
           title: Text(data['title'] ?? 'Bez názvu'),
           subtitle: Text('${data['platform']} • ${data['status']}'),
           trailing: Text('⭐ ${data['rating']}'),
